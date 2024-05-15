@@ -165,7 +165,7 @@ shifter --image jackscanlan/piperline-multi:0.0.1 --env=R_LIBS_USER=/usr/local/l
   $min_sample_reads \
   $min_taxa_reads \
   $min_taxa_ra \
-  $threads 
+  $threads \
   $fresh
 
 exit

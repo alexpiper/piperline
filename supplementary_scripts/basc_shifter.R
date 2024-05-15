@@ -117,9 +117,11 @@ samdf <- samdf %>%
 write_csv(samdf, "sample_data/Sample_info.csv")
 
 # Check if start_fresh is set
-if(any(isTRUE(params$fresh))){
+if(any(isTRUE(as.logical(params$fresh)))){
   message("Start fresh parameter is set - removing all prior targets before running")
   tar_destroy(destroy="all", ask=FALSE)
+} else {
+  message("Continuing pipeline from last run")
 }
 
 # run pipeline
