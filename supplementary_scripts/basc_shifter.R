@@ -59,7 +59,10 @@ params <- tibble(
   # Sample & Taxon filtering
   min_sample_reads = options[32],
   min_taxa_reads= options[33],
-  min_taxa_ra = options[34]
+  min_taxa_ra = options[34],
+  
+  # General pipeline parameters
+  threads = options[35]
 )
 
 write_csv(params, "sample_data/loci_params.csv")
@@ -113,7 +116,7 @@ samdf <- samdf %>%
 write_csv(samdf, "sample_data/Sample_info.csv")
 
 # Check if start_fresh is set
-if(isTRUE(as.logical(options[35]))){
+if(any(isTRUE(as.logical(options[36])))){
   message("Start fresh parameter is set - removing all prior targets before running")
   tar_destroy(destroy="all", ask=FALSE)
 } else {
