@@ -132,7 +132,7 @@ if you wish to use multiple values (i.e. multiple reference databases, multiple 
 cd $working_dir 
 
 # Submit slurm job - CHANGE EMAIL TO YOUR OWN EMAIL
-sbatch --mail-user=your.name@email.com \
+sbatch --mail-user=your.name@email.com --cpus-per-task=10 \
 supplementary_scripts/basc_shifter.slurm \
   --pcr_primers mlCOIintF-jgHCO2198 \
   --for_primer_seq GGWACWGGWTGAACWGTWTAYCCYCC \
@@ -168,7 +168,7 @@ supplementary_scripts/basc_shifter.slurm \
   --min_sample_reads 0 \
   --min_taxa_reads 0 \
   --min_taxa_ra 0 \
-  --threads 1
+  --start_fresh FALSE
 
 ```
 
@@ -220,4 +220,5 @@ supplementary_scripts/basc_shifter.slurm \
     
     
 * **General pipeline parameters**
-    + **threads** - Number of CPU threads to run the pipeline across
+    + **threads** - Number of CPU threads to run the pipeline across - **NOT USED FOR BASC**
+    + **start_fresh** - Whether to remove all intermediate files and start the pipeline fresh
