@@ -14,7 +14,7 @@
 #SBATCH --cpus-per-task=1
 
 # The total amount of memory in megabytes in the job:
-#SBATCH --mem=40GB
+#SBATCH --mem-per-cpu=10GB
 
 # Send yourself an email when the job:
 # aborts abnormally (fails)
@@ -75,7 +75,6 @@ while [ $# -gt 0 ] ; do
     --min_sample_reads) min_sample_reads="$2" ;;
     --min_taxa_reads) min_taxa_reads="$2" ;;
     --min_taxa_ra) min_taxa_ra="$2" ;;
-    --threads) threads="$2" ;;
     --start_fresh) fresh="$2" ;;
   esac
   shift
@@ -117,14 +116,16 @@ echo target_species=$target_species
 echo min_sample_reads=$min_sample_reads
 echo min_taxa_reads=$min_taxa_reads
 echo min_taxa_ra=$min_taxa_ra
-echo threads=$threads
 echo start_fresh=$fresh
 
-# Create parameters file
+# Handle threads
+threads=${SLURM_CPUS_PER_TASK}
+echo threads=$threads
 
+# Run pipeline within docker comntainer using shifter
 module load shifter
 
-# Update shifter image
+# Update shifter image - should be already installed
 # shifterimg pull docker:jackscanlan/piperline-multi:0.0.1
 
 # Run pipeline in shifter

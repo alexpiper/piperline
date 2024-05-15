@@ -5,7 +5,7 @@ source("R/functions.R")
 options(tidyverse.quiet = TRUE)
 
 # Set up local controller if threads > 1
-nthreads <- readr::read_csv("sample_data/loci_params.csv", show_col_types = FALSE)$threads
+nthreads <- as.numeric(readr::read_csv("sample_data/loci_params.csv", show_col_types = FALSE)$threads)
 if(is.null(nthreads)){
   local_controller <- NULL
 } else if ( nthreads ==1 ){
