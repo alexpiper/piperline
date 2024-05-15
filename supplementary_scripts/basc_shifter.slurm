@@ -124,11 +124,11 @@ echo threads=$threads
 module load shifter
 
 # Update shifter image
-# shifterimg pull docker:jackscanlan/piperline:0.0.2
+# shifterimg pull docker:jackscanlan/piperline-multi:0.0.1
 
 # Run pipeline in shifter
 echo Running pipeline
-shifter --image jackscanlan/piperline:0.0.2 --env=R_LIBS_USER=/usr/local/lib/R/site-library \
+shifter --image jackscanlan/piperline-multi:0.0.1 --env=R_LIBS_USER=/usr/local/lib/R/site-library \
 	Rscript --vanilla ./supplementary_scripts/basc_shifter.R \
   $pcr_primers \
   $for_primer_seq \

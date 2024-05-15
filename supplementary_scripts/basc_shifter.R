@@ -9,7 +9,7 @@ library(pak)
 library(targets)
 library(tarchetypes)
 
-suppressWarnings(suppressMessages(source("_targets_packages_nocrew.R")))
+suppressWarnings(suppressMessages(source("_targets_packages.R")))
 suppressWarnings(suppressMessages(source("R/functions.R")))
 suppressWarnings(suppressMessages(source("R/themes.R")))
 
@@ -116,4 +116,4 @@ samdf <- samdf %>%
 write_csv(samdf, "sample_data/Sample_info.csv")
 
 # run pipeline
-tar_make(script = "_targets_nocrew.R")
+tar_make(script = "_targets.R")
