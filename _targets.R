@@ -17,21 +17,19 @@ if(is.null(nthreads)){
     workers = nthreads,
     host = "127.0.0.1",
     port = NULL,
-    tls_enable = FALSE,
-    tls_config = NULL,
+    tls = crew::crew_tls(mode="none"), #No transport layer security enabled
     seconds_interval = 0.25,
     seconds_timeout = 10,
     seconds_launch = 30,
     seconds_idle = Inf,
     seconds_wall = Inf,
-    seconds_exit = 1,
     tasks_max = Inf,
     tasks_timers = 0L,
     reset_globals = TRUE,
     reset_packages = FALSE,
     reset_options = FALSE,
     garbage_collection = FALSE,
-    launch_max = 10L)
+    launch_max = 5L)
 } else {
   stop("threads parameter must be numeric")
 }
