@@ -37,6 +37,43 @@ if [ "x$SLURM_JOB_ID" == "x" ]; then
    exit 1
 fi
 
+# Define default parameters
+pcr_primers=NA
+for_primer_seq=NA
+rev_primer_seq=NA
+target_gene=NA
+max_primer_mismatch=NA
+read_trunc_length=NA
+read_min_length=NA
+read_max_length=NA
+read_max_ee=NA
+read_trim_left=NA
+read_trim_right=NA
+asv_min_length=NA
+asv_max_length=NA
+high_sensitivity=NA
+concat_unmerged=NA
+genetic_code=NA
+coding=NA
+phmm=NA
+idtaxa_db=NA
+ref_fasta=NA
+idtaxa_confidence=NA
+run_blast=NA
+blast_min_identity=NA
+blast_min_coverage=NA
+target_kingdom=NA
+target_phylum=NA
+target_class=NA
+target_order=NA
+target_family=NA
+target_genus=NA
+target_species=NA
+min_sample_reads=NA
+min_taxa_reads=NA
+min_taxa_ra=NA
+start_fresh=NA
+
 
 # Argument parsing
 while [ $# -gt 0 ] ; do
@@ -75,7 +112,7 @@ while [ $# -gt 0 ] ; do
     --min_sample_reads) min_sample_reads="$2" ;;
     --min_taxa_reads) min_taxa_reads="$2" ;;
     --min_taxa_ra) min_taxa_ra="$2" ;;
-    --start_fresh) fresh="$2" ;;
+    --start_fresh) start_fresh="$2" ;;
   esac
   shift
 done
@@ -116,7 +153,7 @@ echo target_species=$target_species
 echo min_sample_reads=$min_sample_reads
 echo min_taxa_reads=$min_taxa_reads
 echo min_taxa_ra=$min_taxa_ra
-echo start_fresh=$fresh
+echo start_fresh=$start_fresh
 
 # Handle threads
 threads=${SLURM_CPUS_PER_TASK}
@@ -167,7 +204,7 @@ shifter --image jackscanlan/piperline-multi:0.0.1 --env=R_LIBS_USER=/usr/local/l
   $min_taxa_reads \
   $min_taxa_ra \
   $threads \
-  $fresh
+  $start_fresh
 
 exit
 
