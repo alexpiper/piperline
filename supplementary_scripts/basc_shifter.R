@@ -63,6 +63,7 @@ params <- tibble(
   
   # General pipeline parameters
   threads = options[35],
+  fresh = options[36]
 )
 
 write_csv(params, "sample_data/loci_params.csv")
@@ -114,6 +115,12 @@ samdf <- samdf %>%
 
 # Write out sample tracking sheet
 write_csv(samdf, "sample_data/Sample_info.csv")
+
+# Check if start_fresh is set
+if(any(isTRUE(params$fresh))){
+  message("Start fresh parameter is set - removing all prior targets before running")
+  tar_destroy(destroy="all", ask=FALSE)
+}
 
 # run pipeline
 tar_make(script = "_targets.R")

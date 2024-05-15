@@ -76,7 +76,7 @@ while [ $# -gt 0 ] ; do
     --min_taxa_reads) min_taxa_reads="$2" ;;
     --min_taxa_ra) min_taxa_ra="$2" ;;
     --threads) threads="$2" ;;
-    
+    --start_fresh) fresh="$2" ;;
   esac
   shift
 done
@@ -118,6 +118,7 @@ echo min_sample_reads=$min_sample_reads
 echo min_taxa_reads=$min_taxa_reads
 echo min_taxa_ra=$min_taxa_ra
 echo threads=$threads
+echo start_fresh=$fresh
 
 # Create parameters file
 
@@ -165,6 +166,7 @@ shifter --image jackscanlan/piperline-multi:0.0.1 --env=R_LIBS_USER=/usr/local/l
   $min_taxa_reads \
   $min_taxa_ra \
   $threads 
+  $fresh
 
 exit
 
