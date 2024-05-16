@@ -3,6 +3,7 @@
 
 # Parse input arguments 
 options <- commandArgs(trailingOnly = TRUE)
+options[options =="NA"] <- NA_character_
 
 #library(renv)
 library(pak)
@@ -14,7 +15,7 @@ suppressWarnings(suppressMessages(source("R/functions.R")))
 suppressWarnings(suppressMessages(source("R/themes.R")))
 
 # Check if all of the input params (except for threads) are empty - if so only use samplsheet and params file already provided to pipeline
-if(any(is.na(options[1:34]))){
+if(!all(is.na(options[1:34]))){
   message("Creating new params file from input arguments")
   
   # Params to add in step_add_parameters

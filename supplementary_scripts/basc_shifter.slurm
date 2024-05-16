@@ -14,7 +14,7 @@
 #SBATCH --cpus-per-task=1
 
 # The total amount of memory in megabytes in the job:
-#SBATCH --mem-per-cpu=10GB
+#SBATCH --mem-per-cpu=20GB
 
 # Send yourself an email when the job:
 # aborts abnormally (fails)
