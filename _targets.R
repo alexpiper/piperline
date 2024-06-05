@@ -6,7 +6,8 @@ options(tidyverse.quiet = TRUE)
 
 # Set up local controller if threads > 1
 nthreads <- max(as.numeric(readr::read_csv("sample_data/loci_params.csv", show_col_types = FALSE)$threads))
-if(is.null(nthreads)){
+
+if(is.null(nthreads) | is.infinite(nthreads)){
   local_controller <- NULL
 } else if ( nthreads ==1 ){
   local_controller <- NULL
