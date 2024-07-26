@@ -44,7 +44,7 @@ names(options) <- c(
   "start_fresh"
 )
 
-print(options)
+#print(options)
 
 #library(renv)
 library(pak)
