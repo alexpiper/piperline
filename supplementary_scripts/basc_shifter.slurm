@@ -38,6 +38,8 @@ if [ "x$SLURM_JOB_ID" == "x" ]; then
 fi
 
 # Define default parameters
+sample_sheet=NA
+run_parameters=NA
 pcr_primers=NA
 for_primer_seq=NA
 rev_primer_seq=NA
@@ -78,6 +80,8 @@ start_fresh=NA
 # Argument parsing
 while [ $# -gt 0 ] ; do
   case $1 in
+    --sample_sheet) sample_sheet="$2" ;;
+    --run_parameters) run_parameters="$2" ;;
     --pcr_primers) pcr_primers="$2" ;;
     --for_primer_seq) for_primer_seq="$2" ;;
     --rev_primer_seq) rev_primer_seq="$2" ;;
@@ -119,6 +123,8 @@ done
 
 # Print parameters
 echo Parameters used for analysis:
+echo sample_sheet=$sample_sheet
+echo run_parameters=$run_parameters
 echo pcr_primers=$pcr_primers
 echo for_primer_seq=$for_primer_seq
 echo rev_primer_seq=$rev_primer_seq
@@ -169,6 +175,8 @@ module load shifter
 echo Running pipeline
 shifter --image jackscanlan/piperline-multi:0.0.1 --env=R_LIBS_USER=/usr/local/lib/R/site-library \
 	Rscript --vanilla ./supplementary_scripts/basc_shifter.R \
+	$sample_sheet \
+	$run_parametrs \
   $pcr_primers \
   $for_primer_seq \
   $rev_primer_seq \
