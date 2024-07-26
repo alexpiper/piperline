@@ -1,6 +1,7 @@
 # Parse input arguments 
 options <- commandArgs(trailingOnly = TRUE)
-options[options =="NA"] <- NA_character_
+#options[options =="NA"] <- NA_character_
+options <- as.list(options)
 
 names(options) <- c(
   "sample_sheet",
@@ -75,7 +76,9 @@ message("Creating new params file from input arguments")
 
 # Create parameters sheet
 params <- options[!names(options) %in% c("sample_sheet", "run_parameters")] %>%
-  purrr::map(~{.x %>%
+  purrr::map(~{
+    #if(is.na(.x)){return(NA)}
+    .x %>%
       str_split_1(",|;") %>%
       str_remove("\\[.*\\]")}) %>%
   bind_rows()
@@ -118,7 +121,7 @@ if (length(missing_sample_ids) > 0) {
 
 # Function to dynamically create case_when logic for primers
 create_case_when <- function(input) {
-  case_when_expr <- map2_chr(names(input), input, ~ sprintf("str_detect(sample_name, '%s') ~ '%s'", .x, .y))
+  case_when_expr <- map2_chr(names(input), input, ~ sprintf("str_detect(sample_id, '%s') ~ '%s'", .x, .y))
   case_when_expr <- paste(case_when_expr, collapse = ", ")
   case_when_expr <- paste0("case_when(", case_when_expr, ", TRUE ~ NA_character_)")
   rlang::parse_expr(case_when_expr)

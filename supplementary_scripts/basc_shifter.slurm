@@ -175,8 +175,8 @@ module load shifter
 echo Running pipeline
 shifter --image jackscanlan/piperline-multi:0.0.1 --env=R_LIBS_USER=/usr/local/lib/R/site-library \
 	Rscript --vanilla ./supplementary_scripts/basc_shifter.R \
-	$sample_sheet \
-	$run_parametrs \
+  $sample_sheet \
+  $run_parameters \
   $pcr_primers \
   $for_primer_seq \
   $rev_primer_seq \
