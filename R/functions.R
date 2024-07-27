@@ -1738,6 +1738,9 @@ step_filter_phyloseq <- function(ps, kingdom = NA, phylum = NA, class = NA,
                                  order = NA, family = NA, genus = NA, species = NA,
                                  min_sample_reads=1000, min_taxa_reads=NA, min_taxa_ra = NA, quiet=FALSE){
   
+  if(is.na(min_sample_reads)){
+    min_sample_reads <- 0
+  }
   #Taxonomic filtering
   taxtab <- phyloseq::tax_table(ps) %>%
     as("matrix") %>% 
