@@ -121,6 +121,19 @@ while [ $# -gt 0 ] ; do
   shift
 done
 
+# If samplesheet and runparameters are, try find them in the data folder
+if [[ "$sample_sheet" == "NA" &&  "$run_parameters" == "NA" ]]; then
+  sample_sheet=$( find ${SLURM_SUBMIT_DIR}/data -maxdepth 2 -name 'SampleSheet.csv' -type f | sort | uniq )
+  run_parameters=""
+  for s in $sample_sheet ; do
+      dir=$(dirname "$s")
+      run_parameters="${run_parameters}${dir}/RunParameters.xml "
+  done
+elif [[ "$sample_sheet" == "NA" || "$run_parameters" == "NA" ]]; then
+  echo "Error: Both sample_sheet and run_parameters must be provided or be empty."
+  exit 1
+fi
+
 # Print parameters
 echo Parameters used for analysis:
 echo sample_sheet=$sample_sheet
