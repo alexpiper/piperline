@@ -129,6 +129,8 @@ if [[ "$sample_sheet" == "NA" &&  "$run_parameters" == "NA" ]]; then
       dir=$(dirname "$s")
       run_parameters="${run_parameters}${dir}/RunParameters.xml "
   done
+  sample_sheet=$(echo $sample_sheet | tr ' ' ',')
+  run_parameters=$(echo $run_parameters | tr ' ' ',')
 elif [[ "$sample_sheet" == "NA" || "$run_parameters" == "NA" ]]; then
   echo "Error: Both sample_sheet and run_parameters must be provided or be empty."
   exit 1
