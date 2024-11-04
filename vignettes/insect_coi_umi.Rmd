@@ -167,6 +167,7 @@ for(f in 1:length(input_files)){
 input_dir <- "data/LM4H4/trimmed"
 input_files <- fs::dir_ls(input_dir, glob="*R1_001.trimmed.fastq.gz")
 output_dir <- "data/LM4H4/filtered"
+
 # Create empty vector for tracking number of reads trimmed
 read_filtering <- vector("list", length = length(input_files))
 
@@ -177,8 +178,7 @@ for(f in 1:length(input_files)){
   fwd_out <- paste0(output_dir,"/", basename(fwd) %>% str_replace("\\.trimmed\\.fastq", "\\.filtered\\.fastq"))
   rev_out <- paste0(output_dir,"/", basename(rev) %>% str_replace("\\.trimmed\\.fastq", "\\.filtered\\.fastq"))
     
-  
-# Run read filter
+  # Run read filter
   read_filtering[[f]] <- dada2::filterAndTrim(
     fwd = fwd, 
     rev = rev, 
@@ -205,7 +205,6 @@ for(f in 1:length(input_files)){
 
 # Merge unique reads by overlap
 
-Note: This is pretty slow - in future consider conducting UMI consensus on F and R seperately then merge?
 ```{r}
 input_dir <- "data/LM4H4/filtered"
 input_files <- fs::dir_ls(input_dir, glob="*R1_001.filtered.fastq.gz")
@@ -242,6 +241,7 @@ for(f in 1:length(input_files)){
 input_dir <- "data/LM4H4/merged"
 input_files <- fs::dir_ls(input_dir, glob="*.merged.fasta.gz")
 
+# Read in sequence data and extract UMI sequences from the header
 umi_data <- input_files %>%
   purrr::map_dfr(~{
     seqs <- Biostrings::readDNAStringSet(.x)
@@ -301,9 +301,10 @@ BrowseSeqs(DECIPHER::AlignSeqs(DNAStringSet(umis_with_divergent_sequences$sequen
 
 ```
 
-# Filter UMIs and create consensus
+# Filter UMIs and create consensus seqs
 
 ```{R}
+# Filter UMI seqs
 filtered_sequences <- umi_summary %>%
   filter(
     mean_distance < 5, # Keep those with less than 5bp differnces between unqiue seqs - play around with this parameter
@@ -311,9 +312,9 @@ filtered_sequences <- umi_summary %>%
     #n_unique_seqs < 5 #play around with this parameter
   ) 
 
+# Create consensus
 umi_consensus <- filtered_sequences %>%
   ungroup()%>%
-  #dplyr::slice(1:1000)%>%
   group_by(umi, sample_id) %>%
   mutate(consensus = purrr::map_chr(sequences, ~{
     if(length(.x) == 1){ # Only a single sequence is present within the UMI group
@@ -336,15 +337,15 @@ umi_consensus <- filtered_sequences %>%
     }
     }))
 
-# See what they look like
-BrowseSeqs(AlignSeqs(DNAStringSet(umi_consensus$consensus[526:762])))
+# See what the consensus sequences look like visually
+BrowseSeqs(AlignSeqs(DNAStringSet(umi_consensus$consensus[1:100])))
 
 ```
 
 
 # Create sequence table and filter ASVs
 ```{r}
-# Create sequence table
+# Create sequence table from consensus UMI sequences
 seqtab <- umi_consensus %>%
   mutate(consensus = consensus %>% str_remove_all("-")) %>% # remove any gaps in sequences
   group_by(sample_id, consensus) %>%
@@ -385,7 +386,6 @@ seqs_rem <- length(colnames(seqtab_cut))/length(colnames(seqtab))
 abund_rem <- sum(seqtab_cut)/sum(seqtab)
 message(paste(round(seqs_rem*100,2), "% of initial sequences and ",round(abund_rem*100,2), "% initial abundance remaining after length filtering"))
 
-
 # Align against phmm
 phmm_model <- readRDS("reference/folmer_fullength_model.rds")
 
@@ -424,7 +424,6 @@ saveRDS(seqtab_final, "output/rds/seqtab_final.rds")
 # Assign taxonomy using IDTAXA
 
 ```{r}
-
 # Create a DNAStringSet from the ASVs
 seqs <- DNAStringSet(getSequences(seqtab_final)) 
 
@@ -460,12 +459,34 @@ ps <- phyloseq(tax_table(taxtab),
 
 saveRDS(ps, "output/rds/ps.rds")
 
+# Filter to only insects
+ps0 <- ps0 %>%
+    subset_taxa_new(
+      rank = "Class",
+      value = "Insecta"
+    ) %>%
+    filter_taxa(function(x) mean(x) > 0, TRUE) # Drop zeros
+
 # Filter taxa under 0.1% relative abundance
 min_taxa_ra = 1e-4
-
 ps1 <- phyloseq::transform_sample_counts(ps0, function(OTU, ab = min_taxa_ra ){
       ifelse((OTU / sum(OTU)) <= ab,  0, OTU) 
     })
+
+# Save filtered phyloseq object
+saveRDS(ps1, "output/rds/ps_filtered.rds")
+
+# Export species level summary of filtered results
+ps1 %>%
+  phyloseq::psmelt() %>%
+  filter(Abundance > 0) %>%
+  left_join(refseq(ps) %>% as.character() %>% enframe(name="OTU", value="sequence")) %>%
+  dplyr::select(OTU, sequence, rank_names(ps1), sample_id, Abundance ) %>%
+  pivot_wider(names_from = sample_id,
+              values_from = Abundance,
+              values_fill = list(Abundance = 0)) %>%
+  write.csv("output/results/summary_filtered.csv")
+
 ```
 
 
