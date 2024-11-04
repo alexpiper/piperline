@@ -1,0 +1,471 @@
+---
+title: "PipeRline"
+subtitle: "UMI pipeline (Experimental)"
+author: "A.M. Piper"
+date: "`r Sys.Date()`"
+output:
+  
+  html_document:
+    highlighter: null
+    theme: "flatly"
+    code_download: true
+    code_folding: show
+    toc: true
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+    df_print: paged    
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+# Knitr global setup - change eval to true to run code
+library(knitr)
+
+
+knitr::opts_chunk$set(echo = TRUE, eval=FALSE, message=FALSE,error=FALSE, fig.show = "hold", fig.keep = "all")
+opts_chunk$set(dev = 'png')
+```
+
+# Introduction
+
+This is an experimental UMI processing pipeline. This is still a work in progress, use at your own risk.
+
+# Clone the pipeRline github repository
+
+The first step is to clone this github repository, which contains the required code and directory structure to run the pipeline. To do this, you will need [Git](https://git-scm.com/) installed on your computer. If you are running the pipeline in Rstudio, it is best to create a new project from the github repository. This can be done by going **file > new project > version control > git** then adding https://github.com/alexpiper/piperline.git then change the name of the project to whatever you are working with. 
+
+Alternatively, the repository can be cloned using the command line, change the 'folder-name' to the desired name
+```{bash}
+# Change into the main directory you wish to make the project in
+cd metabarcoding
+
+# Clone the repository
+git clone https://github.com/alexpiper/piperline.git folder-name
+```
+
+## Updating the pipeline
+
+To update to the latest version of the pipeline, run the below code in the terminal.
+
+```{bash}
+git pull
+```
+
+
+# Demultiplex MiSeq run
+
+```{bash demultiplex 1 mismatch}
+#load module
+module load bcl2fastq2/2.20.0-foss-2018b
+
+#raise amount of available file handles
+ulimit -n 4000
+
+###Run1
+
+#Set up input and outputs
+inputdir=/group/sequencing/241101_M03633_0027_000000000-LM4H4 #CHANGE TO YOUR SEQ RUN
+outputdir=/group/pathogens/IAWS/Personal/Alexp/lachlan_umi/data/LM4H4 #CHANGE TO YOUR DATA FOLDER RUN
+samplesheet=/group/pathogens/IAWS/Personal/Alexp/lachlan_umi/SampleSheet_LM4H4.csv #CHANGE TO YOUR SAMPLESHEET
+
+# convert samplesheet to unix format
+dos2unix $samplesheet
+
+#Demultiplex
+bcl2fastq -p 12 --runfolder-dir $inputdir \
+--output-dir $outputdir \
+--sample-sheet $samplesheet \
+--no-lane-splitting --barcode-mismatches 1
+
+# Copy other necessary files and move fastqs
+cd $outputdir
+cp -r $inputdir/InterOp $outputdir
+cp $inputdir/RunInfo.xml $outputdir
+cp $inputdir/[Rr]unParameters.xml $outputdir
+cp $samplesheet $outputdir
+mv **/*.fastq.gz $outputdir
+
+# Append fcid to start of sample names if missing
+fcid=$(echo $inputdir | sed 's/^.*-//')
+for i in *.fastq.gz; do
+  if ! [[ $i == $fcid* ]]; then
+  new=$(echo ${fcid} ${i}) #append together
+  new=$(echo ${new// /_}) #remove any white space
+  mv -v "$i" "$new"
+  fi
+done
+
+```
+
+Copy files to "data" directory on local PC to run
+
+# Install and load R packages and setup directories
+
+```{r Manual install} 
+library(tidyverse)
+library(ShortRead)
+library(stringdist)
+library(dada2)
+library(DECIPHER)
+library(Biostrings)
+library(phyloseq)
+
+devtools::install_packages("alexpiper/taxreturn")
+devtools::install_packages("alexpiper/seqateurs")
+library(taxreturn)
+library(seqateurs)
+
+# Source ancillary functions
+source("R/functions.R")
+source("R/umi_functions.R")
+```
+
+
+# Trim primers and extract UMIs
+```{R}
+input_dir <- "data/LM4H4/"
+input_files <- fs::dir_ls(input_dir, glob="*R1_001.fastq.gz")
+output_dir <- "data/LM4H4/trimmed"
+# Create empty vector for tracking number of reads trimmed
+primer_trimming <- vector("list", length = length(input_files))
+
+# Loop through input files
+for(f in 1:length(input_files)){
+  fwd <- input_files[f] # Foward read path
+  rev <- input_files[f] %>% str_replace("_R1_", "_R2_") # Reverse read path
+  fwd_out <- paste0(output_dir,"/", basename(fwd) %>% str_replace("\\.fastq", "\\.trimmed\\.fastq")) #Trimmed forward output path
+  rev_out <- paste0(output_dir,"/", basename(rev) %>% str_replace("\\.fastq", "\\.trimmed\\.fastq")) #Trimmed forward output path
+    
+  # Trim primers and put UMI info in read header
+  primer_trimming[[f]] <- trim_umi_primers(
+    fwd=fwd,
+    rev=rev,
+    fwd_out=fwd_out, 
+    rev_out=rev_out, 
+    for_primer_seq="GGDACWGGWTGAACWGTWTAYCCHCC",
+    rev_primer_seq="GTRATWGCHCCDGCTARWACWGG",
+    for_umi_length=6,
+    rev_umi_length=6,
+    n = 1e6,
+    qualityType = "Auto",
+    check_paired = TRUE,
+    id.field = NULL,
+    max_mismatch=0,
+    id.sep = "\\s",
+    compress =TRUE,
+    quiet=FALSE
+  )
+}
+
+```
+
+# Filter reads
+```{r}
+input_dir <- "data/LM4H4/trimmed"
+input_files <- fs::dir_ls(input_dir, glob="*R1_001.trimmed.fastq.gz")
+output_dir <- "data/LM4H4/filtered"
+# Create empty vector for tracking number of reads trimmed
+read_filtering <- vector("list", length = length(input_files))
+
+# Loop through input files
+for(f in 1:length(input_files)){
+  fwd <- input_files[f] # Foward read path
+  rev <- input_files[f] %>% str_replace("_R1_", "_R2_") # Reverse read path
+  fwd_out <- paste0(output_dir,"/", basename(fwd) %>% str_replace("\\.trimmed\\.fastq", "\\.filtered\\.fastq"))
+  rev_out <- paste0(output_dir,"/", basename(rev) %>% str_replace("\\.trimmed\\.fastq", "\\.filtered\\.fastq"))
+    
+  
+# Run read filter
+  read_filtering[[f]] <- dada2::filterAndTrim(
+    fwd = fwd, 
+    rev = rev, 
+    filt = fwd_out,
+    filt.rev = rev_out,
+    minLen = 100,
+    maxLen = Inf,
+    maxEE = 1,
+    truncLen = 0,
+    trimLeft = 0,
+    trimRight = 0, 
+    rm.phix = TRUE, 
+    multithread = FALSE, 
+    compress = TRUE, 
+    verbose = TRUE) %>% 
+    as_tibble() %>%
+    dplyr::rename(filter_input = reads.in,
+                  filter_output = reads.out) 
+}
+
+```
+
+
+
+# Merge unique reads by overlap
+
+Note: This is pretty slow - in future consider conducting UMI consensus on F and R seperately then merge?
+```{r}
+input_dir <- "data/LM4H4/filtered"
+input_files <- fs::dir_ls(input_dir, glob="*R1_001.filtered.fastq.gz")
+output_dir <- "data/LM4H4/merged"
+
+# Create empty vector for tracking number of reads merged
+read_merging <- vector("list", length = length(input_files))
+
+# Loop through input files
+for(f in 1:length(input_files)){
+  
+  fwd <- input_files[f] # Foward read path
+  rev <- input_files[f] %>% str_replace("_R1_", "_R2_") # Reverse read path
+  out <- paste0(output_dir,"/", basename(fwd) %>% str_replace("\\.filtered\\.fastq", "\\.merged\\.fasta"))
+    
+  read_merging[[f]] <- merge_paired_reads(
+    fwd=fwd,
+    rev=rev,
+    out=out, #Output path = fasta not fastq
+    prefer=1, # Which strand to prefer when making consensus 1 = fwd, 2 = rev
+    maxMismatch=2, 
+    minOverlap=20, # Minimum overlap between forward and reverse
+    trimOverhang=TRUE, # Trim overhanging sequence past the end of amplicon
+    n = 1e6,
+    qualityType = "Auto"
+  )                    
+}
+
+```
+
+# UMI QC and filtering
+
+```{r}
+input_dir <- "data/LM4H4/merged"
+input_files <- fs::dir_ls(input_dir, glob="*.merged.fasta.gz")
+
+umi_data <- input_files %>%
+  purrr::map_dfr(~{
+    seqs <- Biostrings::readDNAStringSet(.x)
+    umis <- enframe(as.character(seqs), name="id", value="sequence") %>%
+      mutate(umi = id %>% str_remove("^.*:"))  %>%
+      mutate(sample_id = basename(.x)%>% str_remove("_S.*$")) %>%
+      dplyr::select(-id)
+  })
+
+# Summarise by each UMI family
+umi_summary <- umi_data%>%
+  group_by(umi, sample_id)%>%
+  summarise(
+    n_seqs = n(),
+    n_unique_seqs = n_distinct(sequence),
+    sequences = list(unique(sequence)),
+    mean_distance = ifelse(
+      n_unique_seqs > 1,
+      mean(stringdist::stringdistmatrix(sequence, sequence, method="lv")),  
+      0
+      )) %>%
+  ungroup()
+
+# Plot number of sequences per UMI
+umi_summary %>%
+  ggplot(aes(x = n_seqs)) +
+  geom_histogram()+
+  facet_wrap(sample_id~.)+
+  labs(x = "Total number of sequences per UMI")
+
+# Plot number of unique sequences per UMI
+umi_summary %>%
+  ggplot(aes(x = n_unique_seqs)) +
+  geom_histogram()+
+  facet_wrap(sample_id~.)+
+  labs(x = "Number of unique sequences within each UMI")
+
+# Plot mean edit distance between seqs when UMIs have more than one unique 
+umi_summary %>%
+  filter(mean_distance > 0)%>%
+  ggplot(aes(x = mean_distance))+
+  geom_histogram() +
+  facet_wrap(sample_id~.)+
+  labs(x = "Mean edit distance between distinct sequences in each UMI")
+
+
+# NOTE: Seems to be that some umis may have multiple taxa
+
+# Explore this a bit further
+umis_with_divergent_sequences <- umi_summary %>%
+  filter(mean_distance > 5)
+
+# Align and view them 
+BrowseSeqs(DECIPHER::AlignSeqs(DNAStringSet(umis_with_divergent_sequences$sequences[[1]])))
+
+# NOTE: i recommend doing some blast searches etc to confirm if these are truly multiple taxa
+
+```
+
+# Filter UMIs and create consensus
+
+```{R}
+filtered_sequences <- umi_summary %>%
+  filter(
+    mean_distance < 5, # Keep those with less than 5bp differnces between unqiue seqs - play around with this parameter
+    n_seqs > 1, # Keep those with more than one sequence  - play around with this parameter
+    #n_unique_seqs < 5 #play around with this parameter
+  ) 
+
+umi_consensus <- filtered_sequences %>%
+  ungroup()%>%
+  #dplyr::slice(1:1000)%>%
+  group_by(umi, sample_id) %>%
+  mutate(consensus = purrr::map_chr(sequences, ~{
+    if(length(.x) == 1){ # Only a single sequence is present within the UMI group
+      return(.x)
+    } else {
+      # Create a consensus matrix
+      aln <- DECIPHER::AlignSeqs(DNAStringSet(.x),verbose = FALSE)
+      consensus_matrix <- consensusMatrix(aln)
+
+      # Get the most common base at each position
+      consensus_seq <- apply(consensus_matrix, 2, function(col) {
+          # Find the base with the highest frequency
+          base <- names(which.max(col))
+          if (col[base] == 0) {
+              return("N")  # or any character to indicate ambiguity if no base is found
+          }
+          return(base)
+      })
+      return(paste(consensus_seq, collapse = "") %>% str_remove_all("-"))
+    }
+    }))
+
+# See what they look like
+BrowseSeqs(AlignSeqs(DNAStringSet(umi_consensus$consensus[526:762])))
+
+```
+
+
+# Create sequence table and filter ASVs
+```{r}
+# Create sequence table
+seqtab <- umi_consensus %>%
+  mutate(consensus = consensus %>% str_remove_all("-")) %>% # remove any gaps in sequences
+  group_by(sample_id, consensus) %>%
+  summarise(Abundance = n()) %>%
+  pivot_wider(names_from=consensus,
+              values_from=Abundance,
+              values_fill = list(Abundance = 0)) %>%
+  column_to_rownames("sample_id")%>%
+  as.matrix()
+
+# Save unfiltered seqtab
+saveRDS(seqtab, "output/rds/seqtab.rds")
+
+# Remove sequences that were only seen a few times across the dataset - Play with this aparameter
+seqtab_n1 <- seqtab[,colSums(seqtab) > 10] #minimum 10 molecules observed
+
+# Check how many were removed
+seqs_rem <- length(colnames(seqtab_n1))/length(colnames(seqtab))
+abund_rem <- sum(seqtab_n1)/sum(seqtab)
+message(paste(round(seqs_rem*100,2), "% of initial sequences and ",round(abund_rem*100,2), "% initial abundance remaining after abundance filtering"))
+
+# Remove chimeras
+seqtab_nochim <- removeBimeraDenovo(seqtab_n1, method="consensus")
+
+# Check how many were removed
+seqs_rem <- length(colnames(seqtab_nochim))/length(colnames(seqtab))
+abund_rem <- sum(seqtab_nochim)/sum(seqtab)
+message(paste(round(seqs_rem*100,2), "% of initial sequences and ",round(abund_rem*100,2), "% initial abundance remaining after chimera removal"))
+  
+# Remove asvs outside expected size
+expected_size <- 205
+min_length = expected_size - 10
+max_length = expected_size + 10
+seqtab_cut <- seqtab_nochim[,nchar(colnames(seqtab_nochim)) %in% min_length:max_length]
+
+# Check how many were removed
+seqs_rem <- length(colnames(seqtab_cut))/length(colnames(seqtab))
+abund_rem <- sum(seqtab_cut)/sum(seqtab)
+message(paste(round(seqs_rem*100,2), "% of initial sequences and ",round(abund_rem*100,2), "% initial abundance remaining after length filtering"))
+
+
+# Align against phmm
+phmm_model <- readRDS("reference/folmer_fullength_model.rds")
+
+# Subset phmm to our primer sequences
+phmm_model <- taxreturn::subset_model(phmm_model, primers = c("GGDACWGGWTGAACWGTWTAYCCHCC","GTRATWGCHCCDGCTARWACWGG"))
+
+seqs <- DNAStringSet(colnames(seqtab_cut))
+names(seqs) <- colnames(seqtab_cut)
+phmm_filt <- taxreturn::map_to_model(
+  seqs, model = phmm_model, min_score = 100, min_length = 100,
+  shave = FALSE, check_frame = check_frame, kmer_threshold = 0.5, k=5, extra = "fill")
+    
+seqtab_phmm <- seqtab_cut[,colnames(seqtab_cut) %in% names(phmm_filt)]
+    
+# Check how many were removed
+seqs_rem <- length(colnames(seqtab_phmm))/length(colnames(seqtab))
+abund_rem <- sum(seqtab_phmm)/sum(seqtab)
+message(paste(round(seqs_rem*100,2), "% of initial sequences and ",round(abund_rem*100,2), "% of initial abundance remaining after PHMM filtering"))
+
+#Filter sequences containing stop codons
+seqs <- DNAStringSet(colnames(seqtab_phmm))
+names(seqs) <- colnames(seqtab_phmm)
+codon_filt <- taxreturn::codon_filter(seqs, genetic_code = genetic_code) 
+seqtab_final <- seqtab_phmm[,colnames(seqtab_phmm) %in% names(codon_filt)]
+
+# Check how many were removed
+seqs_rem <- length(colnames(seqtab_final))/length(colnames(seqtab))
+abund_rem <- sum(seqtab_final)/sum(seqtab)
+message(paste(round(seqs_rem*100,2), "% of initial sequences and ",round(abund_rem*100,2), "% of initial abundance remaining after checking reading frame"))
+
+# Save final filtered seqtab
+saveRDS(seqtab_final, "output/rds/seqtab_final.rds")
+
+```
+
+# Assign taxonomy using IDTAXA
+
+```{r}
+
+# Create a DNAStringSet from the ASVs
+seqs <- DNAStringSet(getSequences(seqtab_final)) 
+
+# Load the relevent db
+trainingSet <- readRDS("reference/idtaxa_bftrimmed.rds")
+ranks = c("Root","Kingdom", "Phylum","Class", "Order", "Family", "Genus","Species")
+
+# Classify 
+ids <- DECIPHER::IdTaxa(seqs, trainingSet, processors=1, threshold = 60, verbose=TRUE, strand = "top") 
+    
+#Convert the output object of class "Taxa" to a matrix analogous to the output from assignTaxonomy
+taxtab <- ids %>%
+  purrr::map_dfr(function(x){
+    taxa <- paste0(x$taxon,"_", x$confidence)
+    taxa[startsWith(taxa, "unclassified_")] <- NA
+    data.frame(t(taxa)) %>%
+    magrittr::set_colnames(ranks[1:ncol(.)])
+  }) %>%
+  mutate_all(stringr::str_replace,pattern="(?:.(?!_))+$", replacement="") %>%
+  magrittr::set_rownames(getSequences(seqtab_final))
+
+```
+
+
+# Create phyloseq object
+```{r}
+samdf <- read_csv("sample_data.csv")
+
+ps <- phyloseq(tax_table(taxtab),
+                   sample_data(samdf),
+                   otu_table(seqtab, taxa_are_rows = FALSE),
+                   refseq(seqs))
+
+saveRDS(ps, "output/rds/ps.rds")
+
+# Filter taxa under 0.1% relative abundance
+min_taxa_ra = 1e-4
+
+ps1 <- phyloseq::transform_sample_counts(ps0, function(OTU, ab = min_taxa_ra ){
+      ifelse((OTU / sum(OTU)) <= ab,  0, OTU) 
+    })
+```
+
+
