@@ -113,8 +113,8 @@ library(DECIPHER)
 library(Biostrings)
 library(phyloseq)
 
-devtools::install_packages("alexpiper/taxreturn")
-devtools::install_packages("alexpiper/seqateurs")
+devtools::install_github("alexpiper/taxreturn")
+devtools::install_github("alexpiper/seqateurs")
 library(taxreturn)
 library(seqateurs)
 

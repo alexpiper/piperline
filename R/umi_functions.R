@@ -122,7 +122,7 @@ trim_umi_primers <- function(fwd, rev, fwd_out, rev_out, for_primer_seq, rev_pri
         fixed=FALSE ) <= max_mismatch
       
       # Only keep reads where forward primer is present in F, and reverse in R
-      keep <- keepF & keepF
+      keep <- keepF & keepR
       
       fqF_primer <- suppressWarnings(ShortRead::ShortReadQ(sread=ShortRead::sread(fqF[keep]), 
                                                            quality=Biostrings::quality(Biostrings::quality(fqF[keep])),
@@ -131,11 +131,6 @@ trim_umi_primers <- function(fwd, rev, fwd_out, rev_out, for_primer_seq, rev_pri
       fqR_primer <- suppressWarnings(ShortRead::ShortReadQ(sread=ShortRead::sread(fqR[keep]), 
                                                            quality=Biostrings::quality(Biostrings::quality(fqR[keep])),
                                                            id=ShortRead::id(fqR[keep])))
-      
-      # Make sure reads are longer than the primer sequence
-      keep <- (width(fqF_primer) >= startF & width(fqR_primer) >= startR)
-      fqF_primer <- fqF_primer[keep]
-      fqR_primer <- fqR_primer[keep]
       
       # Extract UMIs from left side
       umiF <- as.character(sread(narrow(fqF_primer, start = 1, end = for_umi_length)))
@@ -146,21 +141,21 @@ trim_umi_primers <- function(fwd, rev, fwd_out, rev_out, for_primer_seq, rev_pri
       startF <- max(1, barlenF + for_umi_length + 1, na.rm=TRUE)
       startR <- max(1, barlenR + rev_umi_length + 1, na.rm=TRUE)
       
-      fqF_primer <- narrow(fqF_primer, start = startF, end = NA)
-      fqR_primer <- narrow(fqR_primer, start = startR, end = NA)
+      fqF_primer_trimmed <- narrow(fqF_primer, start = startF, end = NA)
+      fqR_primer_trimmed <- narrow(fqR_primer, start = startR, end = NA)
       
-      outseqs[p] <- outseqs[p] + length(fqF_primer)    
+      outseqs[p] <- outseqs[p] + length(fqF_primer_trimmed)    
       
       # Update ids for the outputs, including UMI
       fqF_out <- ShortReadQ(
-        sread=ShortRead::sread(fqF_primer),
-        quality=Biostrings::quality(fqF_primer), 
-        id=Biostrings::BStringSet(paste0(ShortRead::id(fqF_primer),":", umi_string )))
+        sread=ShortRead::sread(fqF_primer_trimmed),
+        quality=Biostrings::quality(fqF_primer_trimmed), 
+        id=Biostrings::BStringSet(paste0(ShortRead::id(fqF_primer_trimmed),":", umi_string )))
       
       fqR_out <- ShortReadQ(
-        sread=ShortRead::sread(fqR_primer),
-        quality=Biostrings::quality(fqR_primer), 
-        id=Biostrings::BStringSet(paste0(ShortRead::id(fqR_primer),":", umi_string )))
+        sread=ShortRead::sread(fqR_primer_trimmed),
+        quality=Biostrings::quality(fqR_primer_trimmed), 
+        id=Biostrings::BStringSet(paste0(ShortRead::id(fqR_primer_trimmed),":", umi_string )))
       
       #if(!append[p]) {
       #  ShortRead::writeFastq(fqF_out, fwd_out[p], "w", compress = compress)

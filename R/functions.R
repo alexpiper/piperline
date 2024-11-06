@@ -771,7 +771,7 @@ trim_primers <- function(fwd, rev, fwd_out, rev_out, for_primer_seq, rev_primer_
         fixed=FALSE ) <= max_mismatch
       
       # Only keep reads where forward primer is present in F, and reverse in R
-      keep <- keepF & keepF
+      keep <- keepF & keepR
       
       fqF_primer <- suppressWarnings(ShortRead::ShortReadQ(sread=ShortRead::sread(fqF[keep]), 
                                                            quality=Biostrings::quality(Biostrings::quality(fqF[keep])),
