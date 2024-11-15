@@ -3,6 +3,9 @@ options <- commandArgs(trailingOnly = TRUE)
 #options[options =="NA"] <- NA_character_
 options <- as.list(options)
 
+#print(options)
+
+
 names(options) <- c(
   "sample_sheet",
   "run_parameters",
@@ -117,33 +120,45 @@ if (length(missing_sample_ids) > 0) {
   samdf <- samdf %>% filter(!sample_id %in% missing_sample_ids)
 }
 
-# Add primer details to the sample sheet based on string matching
+# If there are brackets there, add primer details to the sample sheet based on string matching
+pattern_matching <- any(str_detect(c(options$pcr_primers, options$for_primer_seq, options$rev_primer_seq), "[|]"))
 
-# Function to dynamically create case_when logic for primers
-create_case_when <- function(input) {
-  case_when_expr <- map2_chr(names(input), input, ~ sprintf("str_detect(sample_id, '%s') ~ '%s'", .x, .y))
-  case_when_expr <- paste(case_when_expr, collapse = ", ")
-  case_when_expr <- paste0("case_when(", case_when_expr, ", TRUE ~ NA_character_)")
-  rlang::parse_expr(case_when_expr)
+if(pattern_matching){
+  # Function to dynamically create case_when logic for primers
+  create_case_when <- function(input) {
+    case_when_expr <- map2_chr(names(input), input, ~ sprintf("str_detect(sample_id, '%s') ~ '%s'", .x, .y))
+    case_when_expr <- paste(case_when_expr, collapse = ", ")
+    case_when_expr <- paste0("case_when(", case_when_expr, ", TRUE ~ NA_character_)")
+    rlang::parse_expr(case_when_expr)
+  }
+  
+  # Helper function to create named vectors
+  create_named_vector <- function(input) {
+    input_values <- str_split_1(input, ",") %>% str_remove("\\[.*\\]")
+    input_names <- str_split_1(input, ",") %>% str_remove("].*$") %>% str_remove("^.*\\[")
+    setNames(input_values, input_names)
+  }
+  
+  # Define named vectors for patterns and their corresponding primer sequences
+  pattern_to_primers <- create_named_vector(options$pcr_primers)
+  pattern_to_for <- create_named_vector(options$for_primer_seq)
+  pattern_to_rev <- create_named_vector(options$rev_primer_seq)
+  
+  # Add primers to sample sheet based on sample_name matching
+  samdf <- samdf %>%
+    mutate(pcr_primers = !!create_case_when(pattern_to_primers))%>%
+    mutate(for_primer_seq = !!create_case_when(pattern_to_for))%>%
+    mutate(rev_primer_seq = !!create_case_when(pattern_to_rev))
+  
+} else if(!pattern_matching) {
+  # Otherwise just add it direct 
+  samdf <- samdf %>%
+    mutate(
+      pcr_primers = options$pcr_primers,
+      for_primer_seq = options$for_primer_seq,
+      rev_primer_seq = options$rev_primer_seq
+      )
 }
-
-# Helper function to create named vectors
-create_named_vector <- function(input) {
-  input_values <- str_split_1(input, ",") %>% str_remove("\\[.*\\]")
-  input_names <- str_split_1(input, ",") %>% str_remove("].*$") %>% str_remove("^.*\\[")
-  setNames(input_values, input_names)
-}
-
-# Define named vectors for patterns and their corresponding primer sequences
-pattern_to_primers <- create_named_vector(options$pcr_primers)
-pattern_to_for <- create_named_vector(options$for_primer_seq)
-pattern_to_rev <- create_named_vector(options$rev_primer_seq)
-
-# Add primers to sample sheet based on sample_name matching
-samdf <- samdf %>%
-  mutate(pcr_primers = !!create_case_when(pattern_to_primers))%>%
-  mutate(for_primer_seq = !!create_case_when(pattern_to_for))%>%
-  mutate(rev_primer_seq = !!create_case_when(pattern_to_rev))
 
 # Write out sample tracking sheet
 write_csv(samdf, "sample_data/Sample_info.csv")

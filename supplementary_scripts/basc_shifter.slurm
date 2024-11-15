@@ -123,11 +123,11 @@ done
 
 # If samplesheet and runparameters are, try find them in the data folder
 if [[ "$sample_sheet" == "NA" &&  "$run_parameters" == "NA" ]]; then
-  sample_sheet=$( find ${SLURM_SUBMIT_DIR}/data -maxdepth 2 -name 'SampleSheet.csv' -type f | sort | uniq )
+  sample_sheet=$( find ${SLURM_SUBMIT_DIR}/data -maxdepth 2 -name '*SampleSheet*.csv' -type f | sort | uniq )
   run_parameters=""
   for s in $sample_sheet ; do
       dir=$(dirname "$s")
-      run_parameters="${run_parameters}${dir}/RunParameters.xml "
+      run_parameters="${run_parameters}${dir}/[rR]unParameters.xml "
   done
   sample_sheet=$(echo $sample_sheet | tr ' ' ',')
   run_parameters=$(echo $run_parameters | tr ' ' ',')
