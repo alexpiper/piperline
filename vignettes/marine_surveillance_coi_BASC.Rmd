@@ -127,12 +127,14 @@ The parameters for the run are parsed along with the slurm script.
 
 if you wish to use multiple values (i.e. multiple reference databases, multiple primers per index) encapsulate them in a '' and seperate them with a ;
 
+**You will need to change your email address and account code below, see [BASC account code lists](https://users.basc.science.depi.vic.gov.au/jobs/slurm/slurm_accounts/)**
+
 ```{bash}
 
 cd $working_dir 
 
 # Submit slurm job - CHANGE EMAIL TO YOUR OWN EMAIL
-sbatch --mail-user=your.name@email.com --cpus-per-task=10 \
+sbatch --mail-user=your.name@email.com --account=your.account --cpus-per-task=10 \
 supplementary_scripts/basc_shifter.slurm \
   --pcr_primers mlCOIintF-jgHCO2198 \
   --for_primer_seq GGWACWGGWTGAACWGTWTAYCCYCC \

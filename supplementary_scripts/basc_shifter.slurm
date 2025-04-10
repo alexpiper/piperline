@@ -3,9 +3,6 @@
 # The name of the job:
 #SBATCH --job-name="piperline"
 
-# The project ID which this job should run under:
-#SBATCH --account="pathogens"
-
 # The partition in which to submit the job:
 #SBATCH --partition="batch"
 
@@ -181,7 +178,7 @@ threads=${SLURM_CPUS_PER_TASK}
 echo threads=$threads
 
 # Run pipeline within docker comntainer using shifter
-module load shifter
+module load shifter/22.02.1
 
 # Update shifter image - should be already installed
 # shifterimg pull docker:jackscanlan/piperline-multi:0.0.1
