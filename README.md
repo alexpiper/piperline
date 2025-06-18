@@ -1,11 +1,10 @@
 # PipeRline
 
+**NOTE: This repository is no longer actively maintained, see the successor metabarcoding pipeline [freyr](https://github.com/AVR-biosecurity-bioinformatics/freyr)**
+
 PipeRline is a targets based Metabarcoding pipeline implemented in R
 
 The best place to start is going through the [General introduction to the pipeRline workflow](https://alexpiper.github.io/piperline/vignettes/general.html)
-
-Note that this pipeline is primarily intended for internal use at Agriculture Victoria, and may change regularly with no notice.
-**Use at your own risk**.
 
 
 Project specific workflows:
